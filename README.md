@@ -5,3 +5,5 @@ Other planned GUI elements are dropdown boxes, sliders, numeric input, scroll ba
 The textbox is 95% bug free, but the textwrap and textresize features were very difficult to implement without some mishaps.
 
 The code organization + non-existent documentation are currently not a problem, but I plan on improving those in the future.
+
+RTK == Raylib Tool Kit
