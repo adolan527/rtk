@@ -59,7 +59,6 @@ void InitGame() {
     window->AddElement(but);
 
     winMan->AddWindow(window);
-    winMan->AddWindow(window);
 }
 
 void UpdateFrame() {
