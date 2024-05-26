@@ -507,7 +507,7 @@ GuiElementState MouseDetection(Rectangle rect){
     class TextBox : public TextGuiElement{
     public:
         bool m_drawBorder = false;
-        bool m_isTyping = false;
+        //bool m_isTyping = false;
         bool m_doAutoTextWrap = false;
         bool m_doAutoTextResize = true;
         bool m_wrapAtMinFontSize = true;
@@ -525,10 +525,13 @@ GuiElementState MouseDetection(Rectangle rect){
         void Update() override{
             if(m_state == Disabled) return;
 
-            if(m_isTyping){
+            if(m_state==Pressed){
                 //Handle user input
-                if(IsKeyPressed(KEY_ENTER) && !IsKeyDown(KEY_LEFT_SHIFT)){
-                    m_isTyping = false;
+                if(!CheckCollisionPointRec(GetMousePosition(),m_rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
+                    m_state = Normal;
+                }
+                else if(IsKeyPressed(KEY_ENTER) && !IsKeyDown(KEY_LEFT_SHIFT)){
+                    //m_isTyping = false;
                     m_state = Normal;
                 }
                 else{
@@ -577,9 +580,8 @@ GuiElementState MouseDetection(Rectangle rect){
             else{
                 //Check for mouse collision
                 if(CheckCollisionPointRec(GetMousePosition(),m_rect)){
-                    if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
+                    if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)){
                         m_state = Pressed;
-                        m_isTyping = true;
                     }
                     else{
                         m_state = Focused;
@@ -653,7 +655,6 @@ GuiElementState MouseDetection(Rectangle rect){
                     fprintf(stream,"State: Disabled\n");
                     break;
             }
-            fprintf(stream,"IsTyping: %d\n",m_isTyping);
             fprintf(stream,"StringIsFull: %d\n",m_stringIsFull);
             if(showConfigurableBool){
                 fprintf(stream,"DrawBorder: %d\n",m_drawBorder);
@@ -735,7 +736,7 @@ GuiElementState MouseDetection(Rectangle rect){
         }
 
         bool IsTyping(){
-            return m_isTyping;
+            return false;
         }
 
         void SetText(std::string &text){
