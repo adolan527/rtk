@@ -30,6 +30,7 @@ set(SOURCES
         game.cpp
         game.h
         rtk.h
+        json.hpp
 )
 
 # Our Project
