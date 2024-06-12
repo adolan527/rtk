@@ -10,6 +10,9 @@ class RTKTest : public Game{
 
 public:
     RTKTest(int screenWidth, int screenHeight) : Game(screenWidth, screenHeight){
+        m_runtime.RegisterFile("json.txt","debug");
+        m_runtime.LoadJson("debug");
+        return;
         m_debug = fopen("debug.txt","w");
         m_winMan = new RTK::WindowManager({0,0,1600,900},0.1f,10);
 
@@ -89,20 +92,17 @@ public:
     }
 
     ~RTKTest(){
-        m_winMan->WriteDebugInfo(m_debug);
         nlohmann::json j;
         //m_winMan->ToJson(j);
         m_runtime.ToJson();
         m_runtime.SaveJson("debug");
         //std::ofstream file("json.txt");
-        //file << j.dump(4);
-        //file.close();
+
         std::cout << j.dump(4) << std::endl;
 
 
 
-        delete m_winMan;
-        fclose(m_debug);
+        //delete m_winMan;
     }
 
 };

@@ -69,7 +69,7 @@ void JsonFromRectangle(json &j, Rectangle r){
 
         //operator overload for json
 
-        friend void to_json(json& j, const Theme& theme){
+        friend void to_json(json &j, const Theme& theme){
             json temp;
             temp["line"] = {theme.line[0].r,theme.line[0].g,theme.line[0].b,theme.line[0].a,
                          theme.line[1].r,theme.line[1].g,theme.line[1].b,theme.line[1].a,
@@ -89,7 +89,22 @@ void JsonFromRectangle(json &j, Rectangle r){
             j += temp;
         }
 
+
     };
+
+    Theme ThemeFromJson(const json &j){
+        Theme temp{};
+        for(int i = 0; i <RTK_STATES_COUNT; i++){
+            temp.line[i] = {j["line"][i * 3],j["line"][i * 3 + 1],j["line"][i * 3 + 2],j["line"][i * 3 + 3]};
+            temp.text[i] = {j["text"][i * 3],j["text"][i * 3 + 1],j["text"][i * 3 + 2],j["text"][i * 3 + 3]};
+            temp.base[i] = {j["base"][i * 3],j["base"][i * 3 + 1],j["base"][i * 3 + 2],j["base"][i * 3 + 3]};
+        }
+        temp.background = {j["background"][0],j["background"][1],j["background"][2],j["background"][3]};
+        temp.lineWidth = j["lineWidth"];
+        std::string fontFilename = j["font"];
+        temp.font = LoadFontEx(fontFilename.c_str(),64, nullptr,0);
+        return temp;
+    }
 
     struct TextSettings{
         TextAlign horizontalAlign;
@@ -112,6 +127,16 @@ void JsonFromRectangle(json &j, Rectangle r){
         }
 
     };
+
+    TextSettings TextSettingsFromJson(const json &j){
+        TextSettings temp{};
+        temp.horizontalAlign = (TextAlign) j["horizontalAlign"];
+        temp.verticalAlign = (TextAlign) j["verticalAlign"];
+        temp.fontSize = j["fontSize"];
+        temp.fontMargin = {j["fontMargin"][0],j["fontMargin"][1]};
+        temp.spacing = j["spacing"];
+        return temp;
+    }
 
     Theme defaultTheme = {0};
 Theme LoadDefaultTheme(){
@@ -275,6 +300,21 @@ GuiElementState MouseDetection(Rectangle rect){
             m_rect = rect;
         }
 
+        void GuiElementFromJson(const json &j){
+            m_theme = ThemeFromJson(j["theme"]);
+            m_rect = RectangleFromJson(j);
+            if(j.contains("state")){
+                m_state = j["state"];
+            }
+            else{
+                m_state = Normal;
+            }
+        }
+
+        GuiElement(const json &j){
+            GuiElementFromJson(j);
+        }
+
         virtual ~GuiElement(){};
 
         virtual void Draw(){}
@@ -380,7 +420,7 @@ GuiElementState MouseDetection(Rectangle rect){
             else m_state = Disabled;
         }
 
-        void GuiElementJsonFields(json &j){
+        void GuiElementToJson(json &j){
             JsonFromRectangle(j,m_rect);
             j["state"] = m_state;
             j["theme"] = m_theme;
@@ -388,7 +428,7 @@ GuiElementState MouseDetection(Rectangle rect){
 
         virtual void ToJson(json &j){
             json temp;
-            GuiElementJsonFields(j);
+            GuiElementToJson(j);
             j["GuiElement"] =  temp;
 
         }
@@ -408,6 +448,16 @@ GuiElementState MouseDetection(Rectangle rect){
 
         explicit TextGuiElement(Rectangle rect, std::string &text) : GuiElement(rect){
             m_text = text;
+        }
+
+        void TextGuiElementFromJson(json &j){
+            GuiElementFromJson(j);
+            m_text = j["text"];
+            m_textSettings = TextSettingsFromJson(j["textSettings"]);
+        }
+
+        TextGuiElement(json &j){
+            TextGuiElementFromJson(j);
         }
 
         ~TextGuiElement() override{};
@@ -683,7 +733,7 @@ GuiElementState MouseDetection(Rectangle rect){
         }
 
         void TextGuiElementJsonFields(json &j){
-            GuiElementJsonFields(j);
+            GuiElementToJson(j);
             j["text"] = m_text;
             j["textSettings"] = m_textSettings;
         }
@@ -718,6 +768,26 @@ GuiElementState MouseDetection(Rectangle rect){
         TextBox(Rectangle rect, std::string &text) : TextGuiElement(rect, text){
             m_filterFunction = &IsAscii;
         };
+
+        void TextBoxFromJson(json &j){
+            TextGuiElementFromJson(j);
+            m_drawBorder = j["drawBorder"];
+            m_doAutoTextWrap = j["doAutoTextWrap"];
+            m_doAutoTextResize = j["doAutoTextResize"];
+            m_wrapAtMinFontSize = j["wrapAtMinFontSize"];
+            m_hasTextChanged = j["hasTextChanged"];
+            m_stringIsFull = j["stringIsFull"];
+            m_drawCharacterCount = j["drawCharacterCount"];
+            m_keyRepeatCount = j["keyRepeatCount"];
+            m_lastKey = j["lastKey"];
+            m_minimumFontSize = j["minimumFontSize"];
+            m_characterLimit = j["characterLimit"];
+            m_filterFunction = IsAscii;
+        }
+
+        TextBox(json &j) : TextGuiElement(j){
+            TextBoxFromJson(j);
+        }
 
         ~TextBox() override{};
 
@@ -1031,6 +1101,15 @@ GuiElementState MouseDetection(Rectangle rect){
 
         CheckBox(Rectangle rect): GuiElement(rect){};
 
+        void CheckBoxFromJson(json &j){
+            GuiElementFromJson(j);
+            m_isChecked = j["isChecked"];
+        }
+
+        CheckBox(json &j) : GuiElement(j){
+            CheckBoxFromJson(j);
+        }
+
         ~CheckBox() override{};
 
         void Draw() override{
@@ -1066,7 +1145,7 @@ GuiElementState MouseDetection(Rectangle rect){
         }
 
         void CheckBoxJsonFields(json &j){
-            GuiElementJsonFields(j);
+            GuiElementToJson(j);
             j["isChecked"] = m_isChecked;
         }
 
@@ -1086,6 +1165,14 @@ GuiElementState MouseDetection(Rectangle rect){
         Button(Rectangle rect, std::string text, void (*function)()) : TextGuiElement(rect, text){
             m_function = function;
             FindMaxFontSize();
+        }
+
+        void ButtonFromJson(json &j){
+            TextGuiElementFromJson(j);
+        }
+
+        Button(json &j) : TextGuiElement(j){
+            ButtonFromJson(j);
         }
 
         void Draw() override{
@@ -1140,6 +1227,14 @@ GuiElementState MouseDetection(Rectangle rect){
             m_defaultArgument = defaultArgument;
             m_function = function;
             FindMaxFontSize();
+        }
+
+        void ButtonProFromJson(json &j){
+            TextGuiElementFromJson(j);
+        }
+
+        ButtonPro(json &j) : TextGuiElement(j){
+            ButtonProFromJson(j);
         }
 
         void Draw() override{
@@ -1201,6 +1296,14 @@ GuiElementState MouseDetection(Rectangle rect){
             FindMaxFontSize();
         }
 
+        void ButtonPollFromJson(json &j){
+            TextGuiElementFromJson(j);
+        }
+
+        ButtonPoll(json &j) : TextGuiElement(j){
+            ButtonPollFromJson(j);
+        }
+
         void Draw() override{
             DrawRectangleRec(m_rect,m_theme.base[m_state]);
             DrawRectangleLinesEx(m_rect,m_theme.lineWidth,m_theme.line[m_state]);
@@ -1250,10 +1353,6 @@ GuiElementState MouseDetection(Rectangle rect){
         }
 
     };
-    GuiElementState ToggleGuiElementState(GuiElement *element){
-        element->ToggleState();
-        return element->GetState();
-    }
 
     class Window : public TextGuiElement{
     protected:
@@ -1269,6 +1368,31 @@ GuiElementState MouseDetection(Rectangle rect){
             SetVerticalAlign(TextAlign::Center);
             SetFontMargin({0.05,0.05});
             FindMaxFontSize(GetHeaderRectangle());
+        }
+
+        void WindowFromJson(json &j){
+            TextGuiElementFromJson(j);
+            m_headerSize = j["headerSize"];
+            m_drawWindow = j["drawWindow"];
+            json elements = j["elements"];
+            for(auto e : elements){
+                if(e.contains("TextBox")){
+                    m_elements.push_back(new TextBox(e["TextBox"]));
+                }
+                else if(e.contains("CheckBox")){
+                    m_elements.push_back(new CheckBox(e["CheckBox"]));
+                }
+                else if(e.contains("Button")){
+                    m_elements.push_back(new Button(e["Button"]));
+                }
+                else if(e.contains("ButtonPoll")){
+                    m_elements.push_back(new ButtonPoll(e["ButtonPoll"]));
+                }
+            }
+        }
+
+        Window(json &j) : TextGuiElement(j){
+            WindowFromJson(j);
         }
 
         ~Window(){
@@ -1383,6 +1507,17 @@ GuiElementState MouseDetection(Rectangle rect){
             m_drawWindow = true;
         }
 
+        void DynamicWindowFromJson(json &j){
+            WindowFromJson(j);
+            m_enableButtons = j["enableButtons"];
+            m_delete = ButtonPoll(j["deleteButton"]);
+            m_minimize = ButtonPoll(j["minimizeButton"]);
+        }
+
+        DynamicWindow(json &j) : Window(j){
+            DynamicWindowFromJson(j);
+        }
+
         void EnableButtons(){
             m_enableButtons = true;
         }
@@ -1489,6 +1624,20 @@ GuiElementState MouseDetection(Rectangle rect){
             m_maxWindows = maxWindows;
         }
 
+        void WindowManagerFromJson(json &j){
+            GuiElementFromJson(j);
+            m_footerSize = j["footerSize"];
+            m_maxWindows = j["maxWindows"];
+            json windows = j["windows"];
+            for(auto w : windows){
+                m_windows.push_back({new DynamicWindow(w),new ButtonPoll({0,0,0,0},"")});
+            }
+        }
+
+        WindowManager(json &j) : GuiElement(j){
+            WindowManagerFromJson(j);
+        }
+
         ~WindowManager() override{
             for(auto m : m_windows){
                 delete m.window;
@@ -1565,7 +1714,7 @@ GuiElementState MouseDetection(Rectangle rect){
         }
 
         void WindowManagerJsonFields(json &j){
-            GuiElementJsonFields(j);
+            GuiElementToJson(j);
             j["footerSize"] = m_footerSize;
             j["maxWindows"] = m_maxWindows;
             json windows;
@@ -1608,6 +1757,25 @@ GuiElementState MouseDetection(Rectangle rect){
             FindMaxFontSize();
             m_options.head = nullptr;
             m_options.tail = nullptr;
+        }
+
+        void DropdownFromJson(json &j){
+            TextGuiElementFromJson(j);
+            m_isExpanded = j["isExpanded"];
+            m_maxOptions = j["maxOptions"];
+            m_enableScrollBar = j["enableScrollBar"];
+            m_enableScrollBarWhenFull = j["enableScrollBarWhenFull"];
+            json options = j["options"];
+            for(auto o : options){
+                m_options.head = new ButtonNode;
+                m_options.head->button = new ButtonPoll(o);
+                m_options.head->next = nullptr;
+                m_options.tail = m_options.head;
+            }
+        }
+
+        Dropdown(json &j) : TextGuiElement(j){
+            DropdownFromJson(j);
         }
 
         ~Dropdown() override{
@@ -1734,23 +1902,17 @@ GuiElementState MouseDetection(Rectangle rect){
     public:
         //Not necessary, but simplifies the process and allows for easy use of json files
 
-        //static std::unordered_map<std::string,GuiElement*(*)(const json&)> m_constructorMap;
         std::vector<GuiElement*> m_elements;
         std::unordered_map<std::string,std::fstream> m_files;
         json m_json;
 
 
-        RTKRuntime(){
-           // if(m_constructorMap.empty()) InitializeConstructorMap();
+        RTKRuntime() = default;
+
+        RTKRuntime(json &j){
+            m_json = j;
+            FromJson();
         }
-
-    private:
-        void InitializeConstructorMap(){
-            //m_constructorMap["GuiElement"] = [](const json &j)->GuiElement*{ return new GuiElement(j["rectangle"],j["theme"]); };
-        }
-
-    public:
-
 
 
         ~RTKRuntime(){
@@ -1784,14 +1946,42 @@ GuiElementState MouseDetection(Rectangle rect){
             FromJson();
         }
 
-        void FromJson(){
-            m_json = m_json["RTKRuntime"];
+    private: void FromJson(){
+            json elements = m_json["RTKRuntime"]["elements"];
+            //std::cout<<"This is the json file"<<elements<<std::endl;
+            for(auto &element : elements){ //Currently, this goes inside of "GuiElement":{} each time, thus it can't use the key
 
-            for(auto &element : m_json.items()){
+                std::ostringstream temp;
+                temp << element.dump(4) << std::endl;
+                std::string temp2 = temp.str();
+                if(element.contains("TextBox")){
+                    m_elements.push_back(new TextBox(element["TextBox"]));
+                }
+                else if(element.contains("CheckBox")){
+                    m_elements.push_back(new CheckBox(element["CheckBox"]));
+                }
+                else if(element.contains("Button")){
+                    m_elements.push_back(new Button(element["Button"]));
+                }
+                else if(element.contains("ButtonPoll")){
+                    m_elements.push_back(new ButtonPoll(element["ButtonPoll"]));
+                }
+                else if(element.contains("Window")){
+                    m_elements.push_back(new Window(element["Window"]));
+                }
+                else if(element.contains("DynamicWindow")){
+                    m_elements.push_back(new DynamicWindow(element["DynamicWindow"]));
+                }
+                else if(element.contains("WindowManager")){
+                    m_elements.push_back(new WindowManager(element["WindowManager"]));
+                }
+                else if(element.contains("Dropdown")){
+                    m_elements.push_back(new Dropdown(element["Dropdown"]));
+                }
                 //m_elements.push_back(m_constructorMap[element.key()](element.value()));
             }
         }
-
+    public:
         void SaveJson(const std::string &alias){
             //GuiElements to json
             ToJson();
@@ -1806,7 +1996,6 @@ GuiElementState MouseDetection(Rectangle rect){
             }
             m_json["RTKRuntime"]["elements"] = temp;
         }
-
 
 
         void SaveJsonEverywhere(){
